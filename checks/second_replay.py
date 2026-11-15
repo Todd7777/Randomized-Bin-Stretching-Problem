@@ -2,8 +2,9 @@
 """second_replay.py -- a second exact replay of the catalog values printed in the paper.
 
 Standard library only; integers and fractions.Fraction only.  It shares no code with
-check_paper_numbers.py, and it reads no file: every catalog is typed in below exactly as the paper
-prints it.
+check_paper_numbers.py.  Every catalog is typed in below exactly as the paper prints it, except those
+of section 6: their values are typed in, and their streams, packings, priors and lotteries are read
+from cats/.
 
 Method.  A catalog is a list of streams (tuples of integer job sizes) for m bins.  The streams form a
 tree by common prefixes; a deterministic causal policy chooses a bin at every node of the tree.  Bins
@@ -547,6 +548,55 @@ check("decimals of the new results: 1.20161..., 662/551 = 1.20145..., 38/31 = 1.
       and F(45321387788503, 37717059135855) > F(662, 551) > F(240961012, 200582107) and F(38, 31) > F(11, 9)
       and F(3461, 2780) > F(16157, 13167) and F(1043, 830) > F(5, 4) and F(101, 80) > F(5, 4)
       and F(492629561, 387212825) > F(19, 15))
+
+
+# ---------------------------------------------------------------------------------------------
+# 6. catalogs found on 15 Nov 2026: three bins with 6, 12 and 49 streams, and five to nine bins.
+#    The streams, packings, priors and lotteries are read from cats/; the values are typed here.
+# ---------------------------------------------------------------------------------------------
+print("== 6. catalogs of 15 Nov ==")
+import json
+import os
+from functools import reduce
+from math import gcd
+
+CATS = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cats')
+
+
+def from_file(name, label, value):
+    with open(os.path.join(CATS, name + '.json')) as f:
+        d = json.load(f)
+    m, g = d['bins'], d['capacity']
+    streams = [tuple(s) for s in d['streams']]
+    packs = [[tuple(x for x, b in zip(s, a) if b == j) for j in sorted(set(a))] for s, a in zip(streams, d['packing'])]
+    prior = [F(p) for p in d['prior']]
+    den = reduce(lambda x, y: x * y // gcd(x, y), (p.denominator for p in prior), 1)
+    lottery = [(tuple(r['costs']), F(r['weight'])) for r in d['lottery']]
+    check(label + ": the file states the value %s" % value, F(d['value']) == value)
+    certify(label, streams, m, g, packs, tuple(int(p * den) for p in prior), lottery, value * g)
+
+
+from_file('r3_k6_cap51', 'three bins, six streams, capacity 51', F(13666, 11373))
+from_file('r3_k12_cap30', 'three bins, twelve streams, capacity 30', F(780, 649))
+from_file('r3_k49_cap60', 'three bins, 49 streams, capacity 60', F(1007655800692805129, 838300203936349800))
+from_file('m5_k12_cap10', 'five bins, capacity 10', F(39271, 31540))
+from_file('m6_k12_cap10', 'six bins, capacity 10', F(81359, 64730))
+from_file('m7_k24_cap25', 'seven bins, capacity 25', F(12140793962621627, 9605854834663025))
+from_file('m8_k20_cap25', 'eight bins, capacity 25', F(2645831613297, 2077084641125))
+from_file('m9_k11_cap25', 'nine bins, eleven streams, capacity 25', F(11280369, 8837825))
+
+check("decimals of the catalogs of 15 Nov: 1.201617..., 1.20184..., 1.20202..., 1.24511..., 1.25689..., "
+      "1.26389..., 1.27381..., 1.27637...; each exceeds the previous bound",
+      trunc(F(13666, 11373), 6) == F(1201617, 10 ** 6) and trunc(F(780, 649), 5) == F(120184, 10 ** 5)
+      and trunc(F(1007655800692805129, 838300203936349800), 5) == F(120202, 10 ** 5)
+      and trunc(F(39271, 31540), 5) == F(124511, 10 ** 5) and trunc(F(81359, 64730), 5) == F(125689, 10 ** 5)
+      and trunc(F(12140793962621627, 9605854834663025), 5) == F(126389, 10 ** 5)
+      and trunc(F(2645831613297, 2077084641125), 5) == F(127381, 10 ** 5)
+      and trunc(F(11280369, 8837825), 5) == F(127637, 10 ** 5)
+      and F(1007655800692805129, 838300203936349800) > F(780, 649) > F(13666, 11373) > F(45321387788503, 37717059135855)
+      and F(39271, 31540) > F(3461, 2780) and F(81359, 64730) > F(1043, 830)
+      and F(12140793962621627, 9605854834663025) > F(101, 80) and F(2645831613297, 2077084641125) > F(492629561, 387212825)
+      and F(11280369, 8837825) > F(19, 15))
 
 print("== %d checks, %d failed, %.1f s ==" % (NCHECK[0], len(FAILS), time.time() - T0))
 for f in FAILS:
