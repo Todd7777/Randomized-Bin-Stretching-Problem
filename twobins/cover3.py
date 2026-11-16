@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # cover3.py SOLVER KIND GRIDS L D0 MAXD OUT JOBS: every lottery over three algorithms costs at least L
-# (paper, App. E.3). KIND: gg (gridgame) or rg2 (rg2 mode=grid). Example: ./gridgame gg 12,15 47/40 30 960 out 8
+# (paper, App. E.3). KIND: gg (gridgame) or rg2 (rg2 mode=grid). Example: python3 cover3.py ./gridgame gg 12,15 47/40 30 960 out 8
 import sys, os, re, math, subprocess, json
 from fractions import Fraction as Fr
 from concurrent.futures import ThreadPoolExecutor
