@@ -167,11 +167,15 @@ int main(int argc, char **argv) {
   printf("RESULT k %d r %d x2 %d weights %s mode %s: T(root) = %d, W = %d, value = %d/%d = %.10f  (%.0fs)\n", k, R, x2, argv[2], gridmode ? "grid" : "rounded", root, Wsum, root, Wsum * kf, (double)root / (Wsum * kf), omp_get_wtime() - t0); fflush(stdout);
   if (certfile) {
     // closed set reachable from the root under an optimal joint response; written as a potential table
-    vector<unsigned char> vis((size_t)total, 0);
-    struct Q { int h, N; long long idx; }; vector<Q> queue; Q q0; q0.h = 0; q0.N = 0; q0.idx = 0; queue.push_back(q0); vis[off[0]] = 1;
+    if (nH >= (1 << 24) || NMAX >= 256 || pw[NMAX][K] >= (1LL << 32)) { printf("certificate: too large to pack\n"); return 6; }
+    vector<u64> vis(((size_t)total + 63) / 64, 0);
+#define VIS(i) ((vis[(size_t)(i) >> 6] >> ((size_t)(i) & 63)) & 1ULL)
+#define SETVIS(i) (vis[(size_t)(i) >> 6] |= 1ULL << ((size_t)(i) & 63))
+#define PK(h, N, idx) (((u64)(h) << 40) | ((u64)(N) << 32) | (u64)(idx))
+    vector<u64> queue; queue.reserve((size_t)(total / 20) + 1024); queue.push_back(PK(0, 0, 0)); SETVIS(off[0]);
     size_t head = 0;
     while (head < queue.size()) {
-      Q cur = queue[head++]; int h = cur.h, N = cur.N; int n1 = N + 1; int s[8]; { long long x = cur.idx; for (int j = 0; j < K; j++) { s[j] = (int)(x % n1); x /= n1; } }
+      u64 qq = queue[head++]; int h = (int)(qq >> 40), N = (int)((qq >> 32) & 255); int n1 = N + 1; int s[8]; { long long x = (long long)(qq & 0xffffffffULL); for (int j = 0; j < K; j++) { s[j] = (int)(x % n1); x /= n1; } }
       for (int c = 0; c < kf; c++) for (int nu = 0; nu < 2; nu++) {
         if (gridmode && nu == 0) continue;
         Tab &t = TB(N, c, nu); if (!t.valid) continue; int Np = N + c + nu; int hp = h;
@@ -188,10 +192,10 @@ int main(int argc, char **argv) {
             for (int r = 0; r < (1 << K); r++) {
               long long ix = 0;
               for (int j = 0; j < K; j++) ix += (long long)(((r >> j) & 1) ? t.nb[s[j]][p[j]] : t.ns[s[j]][p[j]]) * pwp[j];
-              int v = T[o + ix]; bool vv = vis[o + ix];
+              int v = T[o + ix]; bool vv = VIS(o + ix);
               if (v < mn || (v == mn && vv && !bv)) { mn = v; bi = ix; bv = vv; }
             }
-            if (!vis[o + bi]) { vis[o + bi] = 1; Q nq; nq.h = hp; nq.N = Np; nq.idx = bi; queue.push_back(nq); }
+            if (!VIS(o + bi)) { SETVIS(o + bi); queue.push_back(PK(hp, Np, bi)); }
           }
           int j = 0; while (j < K) { if (++p[j] < np[j]) break; p[j] = 0; j++; }
           if (j == K) break;
@@ -202,9 +206,9 @@ int main(int argc, char **argv) {
     FILE *f = fopen(certfile, "w");
     fprintf(f, "# rounded-game potential certificate: k %d r %d x2 %d weights %s mode %s root %d\n# line: N T | coarse classes of H (or -) | U_small,U_big per policy (fine units)\n", k, R, x2, argv[2], gridmode ? "grid" : "rounded", root);
     for (size_t i = 0; i < queue.size(); i++) {
-      Q cur = queue[i]; int N = cur.N, n1 = N + 1; long long x = cur.idx;
-      fprintf(f, "%d %d |", N, (int)T[off[(size_t)cur.h * (NMAX + 1) + N] + cur.idx]);
-      bool any = false; for (int c = 1; c <= cmaxH; c++) for (int r = 0; r < Hcnt[cur.h][c]; r++) { fprintf(f, " %d", c); any = true; }
+      u64 qq = queue[i]; int ch = (int)(qq >> 40), N = (int)((qq >> 32) & 255), n1 = N + 1; long long cidx = (long long)(qq & 0xffffffffULL), x = cidx;
+      fprintf(f, "%d %d |", N, (int)T[off[(size_t)ch * (NMAX + 1) + N] + cidx]);
+      bool any = false; for (int c = 1; c <= cmaxH; c++) for (int r = 0; r < Hcnt[ch][c]; r++) { fprintf(f, " %d", c); any = true; }
       if (!any) fprintf(f, " -");
       fprintf(f, " |");
       for (int j = 0; j < K; j++) { int sj = (int)(x % n1); x /= n1; int e, a; dec(N, sj, e, a); fprintf(f, " %d,%d", a, N + e - a); }

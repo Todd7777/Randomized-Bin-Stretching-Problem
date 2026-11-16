@@ -20,15 +20,15 @@ UV_NPROC=64 python3 -B ../verify/uverify.py m 1 5 ../verify/rows.json ../verify/
 
 Needs numpy. Never use `-O`.
 
-## R_2 <= 11/9
+## R_2 <= 109/90
 
-`twobins/` has the solver of the rounded game and two checkers of its certificates.
+`twobins/` has the solver of the rounded game and checkers of its certificates.
 
 ```
 g++ -O2 -fopenmp -o rg2 twobins/rg2.cpp
-g++ -O2 -fopenmp -o vcheck twobins/vcheck.cpp
-./rg2 9 3,2,1 r=3 x2=1 cert=c.txt
-./vcheck c.txt
+g++ -O2 -fopenmp -o icheck twobins/icheck.cpp
+./rg2 12 5,3,2 r=3 x2=1 cert=c.txt
+./icheck c.txt
 ```
 
-About 3 GB of memory. `python3 twobins/rgcheck.py c.txt` checks small certificates.
+About 40 GB of memory. `./rg2 9 3,2,1 r=3 x2=1 cert=c.txt` gives 11/9 with 3 GB. `vcheck.cpp` and `rgcheck.py` are two more checkers.
