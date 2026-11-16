@@ -32,3 +32,14 @@ g++ -O2 -fopenmp -o icheck twobins/icheck.cpp
 ```
 
 About 40 GB of memory. `./rg2 9 3,2,1 r=3 x2=1 cert=c.txt` gives 11/9 with 3 GB. `vcheck.cpp` and `rgcheck.py` are two more checkers.
+
+## Three algorithms: at least 47/40
+
+Every lottery over three deterministic algorithms has an input of expected cost at least 47/40.
+
+```
+g++ -O2 -fopenmp -std=c++17 -o gridgame twobins/gridgame.cpp
+python3 twobins/cover3.py ./gridgame gg 12,15 47/40 30 960 out 8
+```
+
+A few minutes and 5 GB. `./rg2 k w mode=grid` gives the same game values.
