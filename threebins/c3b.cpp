@@ -1,6 +1,6 @@
 // c3b.cpp: a second checker for rg3.cpp certificates (paper, App. F), with the format and checks of c3a.cpp.
 // It decides each move from the definition of the bits, by Fourier-Motzkin elimination over t, x and the
-// fractional parts of all loads, and checks a rational witness for every allowed pattern.
+// fractional parts of all loads, and checks a rational witness for every allowed pattern. 64-bit state numbers.
 // g++ -O2 -std=c++17 -fopenmp -o c3b c3b.cpp && ./c3b FILE
 #include <cstdio>
 #include <cstdlib>
@@ -642,7 +642,7 @@ template <int W> static inline Key<W> kgroup(const Key<W>& a, int qbits) {
   if (rem && full < W) g.w[full] &= ~((1ULL << rem) - 1);
   return g;
 }
-template <int W> struct Rec { Key<W> key; ull T; uint32_t id; };
+template <int W> struct Rec { Key<W> key; ull T; ull id; };
 
 struct Text {
   const char* d = nullptr;
@@ -815,7 +815,7 @@ template <int W> static int run(Text& tx, const Hdr& H, const Layout& L) {
     size_t est = tx.sz / (size_t)(2 * ntok) + 16;
     recs.reserve((size_t)std::min<ull>(H.n, (ull)est));
   }
-  struct Oor { std::vector<ull> v; uint32_t id; };
+  struct Oor { std::vector<ull> v; ull id; };
   std::vector<Oor> oor;
   ull first4 = NOTFOUND, first5 = NOTFOUND;
   std::string why4, why5;
@@ -889,13 +889,13 @@ template <int W> static int run(Text& tx, const Hdr& H, const Layout& L) {
         for (int f = 0; f < nf; f++) kput(rc.key, L.pos[f], L.wid[f], tok[f]);
         for (int f = 0; f < nf; f++) ASSERT(kget(rc.key, L.pos[f], L.wid[f]) == tok[f]);
         rc.T = tok[nf];
-        rc.id = (uint32_t)cnt;
+        rc.id = cnt;
         recs.push_back(rc);
       } else {
-        oor.push_back({std::vector<ull>(tok.begin(), tok.begin() + nf), (uint32_t)cnt});
+        oor.push_back({std::vector<ull>(tok.begin(), tok.begin() + nf), cnt});
       }
       cnt++;
-      if (cnt >= 0xFFFFFFFFULL) unsupported("more than 2^32-2 states");
+      if (cnt >= (1ULL << 40)) unsupported("more than 2^40 states");
     }
     if (cnt < H.n) verdict_fail(1, (long long)cnt, "the file ends after " + ulls(cnt) + " state lines, the header says n = " + ulls(H.n));
   }
@@ -943,7 +943,7 @@ template <int W> static int run(Text& tx, const Hdr& H, const Layout& L) {
   const size_t n = recs.size();
   std::vector<Key<W>> keys(n);
   std::vector<ull> Ts(n);
-  std::vector<uint32_t> ids(n);
+  std::vector<ull> ids(n);
 #pragma omp parallel for schedule(static)
   for (size_t i = 0; i < n; i++) { keys[i] = recs[i].key; Ts[i] = recs[i].T; ids[i] = recs[i].id; }
   std::vector<Rec<W>>().swap(recs);

@@ -121,12 +121,12 @@ struct Cert {
     return h;
   }
   ll find(const uint16_t* key) const {
-    ull h = hk(key, klen), tag = h >> 32, i = h & mask;
+    ull h = hk(key, klen), tag = h >> 36, i = h & mask;
     while (true) {
       ull s = slot[i];
       if (!s) return -1;
-      if ((s >> 32) == tag) {
-        ll id = (ll)(s & 0xffffffffULL) - 1;
+      if ((s >> 36) == tag) {
+        ll id = (ll)(s & 0xfffffffffULL) - 1;
         if (!memcmp(&keys[(size_t)id * klen], key, (size_t)klen * 2)) return id;
       }
       i = (i + 1) & mask;
@@ -174,7 +174,7 @@ struct Cert {
         if (!err.empty()) break;
         T0 = (ll)tok[3 + K];
         n = (ll)tok[4 + K];
-        if (n < 1 || n > 4000000000LL) { err = "n out of range"; break; }
+        if (n < 1 || n > 60000000000LL) { err = "n out of range"; break; }
         F = k * r;
         klen = k + 3 * K;
         if (F > 5000) { err = "F too large for this simulator"; break; }
@@ -215,17 +215,17 @@ struct Cert {
     for (ll id = 0; id < n; id++) {
       if (skip[id]) continue;
       const uint16_t* kp = &keys[(size_t)id * klen];
-      ull h = hk(kp, klen), tag = h >> 32, i = h & mask;
+      ull h = hk(kp, klen), tag = h >> 36, i = h & mask;
       bool isdup = false;
       while (slot[i]) {
-        if ((slot[i] >> 32) == tag) {
-          ll o = (ll)(slot[i] & 0xffffffffULL) - 1;
+        if ((slot[i] >> 36) == tag) {
+          ll o = (ll)(slot[i] & 0xfffffffffULL) - 1;
           if (!memcmp(&keys[(size_t)o * klen], kp, (size_t)klen * 2)) { isdup = true; break; }
         }
         i = (i + 1) & mask;
       }
       if (isdup) { dup++; continue; }
-      slot[i] = (tag << 32) | (ull)(id + 1);
+      slot[i] = (tag << 36) | (ull)(id + 1);
     }
     uint16_t z[KLMAX];
     memset(z, 0, sizeof z);

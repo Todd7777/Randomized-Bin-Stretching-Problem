@@ -53,9 +53,9 @@ python3 twobins/cover2.py ./gridgame 12,15,18,21,24,27 29/24 20 1280 out 4 12
 
 Six minutes on 48 cores, 21 GB.
 
-## R_3 <= 4/3
+## R_3 <= 83/63
 
-A fair coin between two algorithms for three bins. `threebins/` has the solver, two checkers and a simulator.
+`threebins/` has the solver, two checkers and a simulator for three bins.
 
 ```
 g++ -O2 -fopenmp -o rg3 threebins/rg3.cpp
@@ -64,4 +64,4 @@ g++ -O2 -std=c++17 -fopenmp -o c3a threebins/c3a.cpp
 ./c3a c.txt
 ```
 
-Eleven minutes on 16 cores, 6 GB. `c3b.cpp` is a second checker. `sim3.cpp` runs the coin on real inputs.
+This is a fair coin of 4/3: eleven minutes on 16 cores, 6 GB. `./rg3 10 2 1,1 maxgb=80 cert=c.txt` gives a fair coin of 53/40 (an 89 GB file) and `./rg3 9 3 4,3 maxgb=80 cert=c.txt` a lottery of 83/63 (213 GB). Both need several hundred GB of memory. `c3b.cpp` is a second checker. `sim3.cpp` runs a lottery on real inputs.
