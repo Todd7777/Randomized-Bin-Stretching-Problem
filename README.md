@@ -52,3 +52,16 @@ python3 twobins/cover2.py ./gridgame 12,15,18,21,24,27 29/24 20 1280 out 4 12
 ```
 
 Six minutes on 48 cores, 21 GB.
+
+## R_3 <= 4/3
+
+A fair coin between two algorithms for three bins. `threebins/` has the solver, two checkers and a simulator.
+
+```
+g++ -O2 -fopenmp -o rg3 threebins/rg3.cpp
+g++ -O2 -std=c++17 -fopenmp -o c3a threebins/c3a.cpp
+./rg3 6 3 1,1 cert=c.txt
+./c3a c.txt
+```
+
+Eleven minutes on 16 cores, 6 GB. `c3b.cpp` is a second checker. `sim3.cpp` runs the coin on real inputs.
