@@ -39,7 +39,16 @@ Every lottery over three deterministic algorithms has an input of expected cost 
 
 ```
 g++ -O2 -fopenmp -std=c++17 -o gridgame twobins/gridgame.cpp
+g++ -O2 -std=c++17 -o gcheck twobins/gcheck.cpp
 python3 twobins/cover3.py ./gridgame gg 12,15 47/40 30 960 out 8
 ```
 
-A few minutes and 5 GB. `./rg2 k w mode=grid` gives the same game values.
+A few minutes and 5 GB. `./rg2 k w mode=grid` gives the same values. `./gridgame 15 5,3,2 cert=c.txt` also writes a certificate of the value, and `./gcheck c.txt` checks it.
+
+## Two algorithms: at least 29/24
+
+```
+python3 twobins/cover2.py ./gridgame 12,15,18,21,24,27 29/24 20 1280 out 4 12
+```
+
+Six minutes on 48 cores, 21 GB.

@@ -1,6 +1,8 @@
 // gridgame.cpp: exact value of the K-copy grid game for two bins (paper, App. E.3).
-// g++ -O2 -fopenmp -std=c++17 -o gridgame gridgame.cpp && ./gridgame k w1,...,wK
+// g++ -O2 -fopenmp -std=c++17 -o gridgame gridgame.cpp && ./gridgame k w1,...,wK [cert=FILE]
+// cert=FILE also writes a certificate of the value for gcheck.cpp.
 
+#include <algorithm>
 #include <chrono>
 #include <cinttypes>
 #include <cstdint>
@@ -214,7 +216,7 @@ static void eval_multiset(int N, int id, i64* out) {
 }
 
 template <int KK>
-static i64 solve_levels(size_t* peak_table_bytes) {
+static i64 solve_levels(size_t* peak_table_bytes, bool keep) {
   const bool verbose = getenv("GRIDGAME_VERBOSE") != nullptr;
   size_t cur = 0, peak = 0;
   g_tab.assign((size_t)(2 * g_k + 1), nullptr);
@@ -230,7 +232,7 @@ static i64 solve_levels(size_t* peak_table_bytes) {
     const long ncnt = (long)cnt;
 #pragma omp parallel for schedule(dynamic, 1)
     for (long r = 0; r < ncnt; ++r) eval_multiset<KK>(N, ids[(size_t)r], tab + (size_t)r * box);
-    if (N + g_k <= 2 * g_k) {  // level N+k has no parent below N
+    if (!keep && N + g_k <= 2 * g_k) {  // level N+k has no parent below N
       const size_t M = (size_t)(N + g_k);
       cur -= g_level[M].size() * g_box[M] * sizeof(i64);
       delete[] g_tab[M];
@@ -242,6 +244,114 @@ static i64 solve_levels(size_t* peak_table_bytes) {
   }
   *peak_table_bytes = peak;
   return g_tab[0][0];  // the root: empty multiset, all a_j = 0
+}
+
+// ------------------------------------------------------------------------------- certificate
+// A strategy of the adversary that gets at least T. A state of total N is named by its position in
+// the table of level N. Each listed state needs r, the largest r of its listed parents (T at the
+// root). It stops if its payoff is at least r, and otherwise sends the largest s whose worst answer
+// is at least r.
+
+// Positions of the 2^K answers to s. Bit j of x set: copy j+1 keeps a_j (big), else small.
+static void answers(int N, const int* a, int s, int c, u64* out) {
+  const int N2 = N + s;
+  const u64 L2 = (u64)(N2 / 2) + 1, base = (u64)g_rank[(size_t)c] * (u64)g_box[(size_t)N2];
+  for (int x = 0; x < (1 << g_K); ++x) {
+    u64 idx = 0, mul = 1;
+    for (int j = 0; j < g_K; ++j) {
+      const int up = a[j] + s, other = N - a[j];
+      const int aj = ((x >> j) & 1) ? a[j] : (up < other ? up : other);
+      if (aj < 0 || (u64)aj >= L2) die("internal: load out of range");
+      idx += (u64)aj * mul;
+      mul *= L2;
+    }
+    out[x] = base + idx;
+  }
+}
+
+static void loads(int N, u64 pos, int* a) {
+  const size_t L = (size_t)(N / 2) + 1;
+  size_t t = (size_t)(pos % g_box[(size_t)N]);
+  for (int j = 0; j < g_K; ++j) {
+    a[j] = (int)(t % L);
+    t /= L;
+  }
+}
+
+static u64 write_certificate(const char* path, i64 T) {
+  const int k = g_k, K = g_K, X = 1 << g_K, top = 2 * g_k;
+  std::vector<std::unordered_map<u64, i64>> need((size_t)top + 1);
+  std::vector<std::vector<u64>> pos((size_t)top + 1);
+  std::vector<std::vector<i64>> req((size_t)top + 1);
+  std::vector<std::vector<int>> job((size_t)top + 1);  // 0: stop
+  u64 d[1 << MAXCOPIES];
+  int a[MAXCOPIES];
+  need[0][0] = T;
+  for (int N = 0; N <= top; ++N) {
+    std::vector<std::pair<u64, i64>> cur(need[(size_t)N].begin(), need[(size_t)N].end());
+    std::sort(cur.begin(), cur.end());
+    for (const auto& e : cur) {
+      const u64 p = e.first;
+      const i64 r = e.second;
+      const int id = g_level[(size_t)N][(size_t)(p / g_box[(size_t)N])];
+      if (g_tab[(size_t)N][p] < r) die("internal: value below requirement");
+      loads(N, p, a);
+      i64 S = 0;
+      for (int j = 0; j < K; ++j) S += g_w[j] * (i64)(N - a[j]);
+      int mv = 0;
+      if (S < r) {
+        for (int s = 1; s <= k; ++s) {
+          const int c = g_child[(size_t)id * (size_t)(k + 1) + s];
+          if (c < 0) continue;
+          answers(N, a, s, c, d);
+          i64 worst = INT64_MAX;
+          for (int x = 0; x < X; ++x) worst = std::min(worst, g_tab[(size_t)(N + s)][d[x]]);
+          if (worst >= r) mv = s;
+        }
+        if (mv == 0) die("internal: no job meets the requirement");
+        answers(N, a, mv, g_child[(size_t)id * (size_t)(k + 1) + mv], d);
+        for (int x = 0; x < X; ++x) {
+          i64& q = need[(size_t)(N + mv)].emplace(d[x], r).first->second;
+          q = std::max(q, r);
+        }
+      }
+      pos[(size_t)N].push_back(p);
+      req[(size_t)N].push_back(r);
+      job[(size_t)N].push_back(mv);
+    }
+  }
+  std::vector<u64> off((size_t)top + 2, 0);
+  for (int N = 0; N <= top; ++N) off[(size_t)N + 1] = off[(size_t)N] + pos[(size_t)N].size();
+  FILE* f = fopen(path, "w");
+  if (!f) die("cannot write the certificate");
+  fprintf(f, "GRIDCERT %d %d", k, K);
+  for (int j = 0; j < K; ++j) fprintf(f, " %" PRId64, g_w[j]);
+  fprintf(f, " %" PRId64 " %" PRIu64 "\n", T, off[(size_t)top + 1]);
+  for (int N = 0; N <= top; ++N)
+    for (size_t i = 0; i < pos[(size_t)N].size(); ++i) {
+      const u64 p = pos[(size_t)N][i];
+      const int id = g_level[(size_t)N][(size_t)(p / g_box[(size_t)N])], mv = job[(size_t)N][i];
+      loads(N, p, a);
+      fprintf(f, "%d", N);
+      for (int s = 1; s <= k; ++s) fprintf(f, " %d", (int)(unsigned char)g_key[(size_t)id][(size_t)(s - 1)]);
+      for (int j = 0; j < K; ++j) fprintf(f, " %d", a[j]);
+      fprintf(f, " %" PRId64, req[(size_t)N][i]);
+      if (mv == 0) {
+        fprintf(f, " S\n");
+        continue;
+      }
+      fprintf(f, " J %d", mv);
+      answers(N, a, mv, g_child[(size_t)id * (size_t)(k + 1) + mv], d);
+      const std::vector<u64>& v = pos[(size_t)(N + mv)];
+      for (int x = 0; x < X; ++x) {
+        const auto it = std::lower_bound(v.begin(), v.end(), d[x]);
+        if (it == v.end() || *it != d[x]) die("internal: answer not listed");
+        fprintf(f, " %" PRIu64, off[(size_t)(N + mv)] + (u64)(it - v.begin()));
+      }
+      fprintf(f, "\n");
+    }
+  if (fclose(f) != 0) die("cannot write the certificate");
+  return off[(size_t)top + 1];
 }
 
 // ------------------------------------------------------------------------------- main
@@ -267,11 +377,12 @@ static i64 gcd64(i64 a, i64 b) {
 }
 
 int main(int argc, char** argv) {
-  if (argc != 3) {
-    fprintf(stderr, "usage: %s k w1,w2,...,wK   (1 <= K <= 4, integer weights >= 0, positive sum)\n",
+  if (argc != 3 && (argc != 4 || strncmp(argv[3], "cert=", 5) != 0 || !argv[3][5])) {
+    fprintf(stderr, "usage: %s k w1,w2,...,wK [cert=FILE]   (1 <= K <= 4, integer weights >= 0, positive sum)\n",
             argv[0]);
     return 2;
   }
+  const char* cert = argc == 4 ? argv[3] + 5 : nullptr;
   i64 kv = 0;
   if (!parse_nonneg(argv[1], MAXK, &kv) || kv < 1) die("k must be an integer in 1..31");
   g_k = (int)kv;
@@ -317,7 +428,7 @@ int main(int argc, char** argv) {
   for (int N = 2 * g_k; N >= 0; --N) {
     pred_cur += g_level[(size_t)N].size() * g_box[(size_t)N];
     if (pred_cur > pred_peak) pred_peak = pred_cur;
-    if (N + g_k <= 2 * g_k) pred_cur -= g_level[(size_t)(N + g_k)].size() * g_box[(size_t)(N + g_k)];
+    if (!cert && N + g_k <= 2 * g_k) pred_cur -= g_level[(size_t)(N + g_k)].size() * g_box[(size_t)(N + g_k)];
   }
   fprintf(stderr,
           "gridgame: k=%d K=%d weights=%s threads=%d feasible_multisets=%zu table_entries=%zu "
@@ -328,13 +439,14 @@ int main(int argc, char** argv) {
   size_t peak_bytes = 0;
   i64 T = 0;
   switch (g_K) {
-    case 1: T = solve_levels<1>(&peak_bytes); break;
-    case 2: T = solve_levels<2>(&peak_bytes); break;
-    case 3: T = solve_levels<3>(&peak_bytes); break;
-    case 4: T = solve_levels<4>(&peak_bytes); break;
+    case 1: T = solve_levels<1>(&peak_bytes, cert); break;
+    case 2: T = solve_levels<2>(&peak_bytes, cert); break;
+    case 3: T = solve_levels<3>(&peak_bytes, cert); break;
+    case 4: T = solve_levels<4>(&peak_bytes, cert); break;
     default: die("K must be in 1..4");
   }
   const double t2 = wall_seconds();
+  if (cert) fprintf(stderr, "gridgame: certificate %s states=%" PRIu64 "\n", cert, write_certificate(cert, T));
 
   const i64 den = g_W * (i64)g_k;
   const i64 g = gcd64(T, den);
