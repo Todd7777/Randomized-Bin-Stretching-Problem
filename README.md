@@ -7,7 +7,15 @@ python3 checks/check_paper_numbers.py
 python3 checks/second_replay.py --max-bins 20
 ```
 
-Python 3. No dependencies.
+Python 3. No dependencies. `checks/third` is a third solver for some catalogs:
+
+```
+cd checks/third
+python3 check_complete.py ../cats
+python3 check_k49.py ../cats
+python3 check_more.py ../cats
+python3 check_cap8580.py
+```
 
 ## W(U) <= 1/5
 
@@ -18,20 +26,20 @@ cd rec
 UV_NPROC=64 python3 -B ../verify/uverify.py m 1 5 ../verify/rows.json ../verify/m_d12.top $(sed 's|.*rec/||' ../verify/records.sha256)
 ```
 
-Needs numpy. Never use `-O`.
+Needs numpy. Never use `-O` or `PYTHONOPTIMIZE`. The two numbers after `m` are the level 1/5, and the second must be positive.
 
-## R_2 <= 109/90
+## R_2 <= 29/24
 
 `twobins/` has the solver of the rounded game and checkers of its certificates.
 
 ```
 g++ -O2 -fopenmp -o rg2 twobins/rg2.cpp
 g++ -O2 -fopenmp -o icheck twobins/icheck.cpp
-./rg2 12 5,3,2 r=3 x2=1 cert=c.txt
+./rg2 9 3,2,1 r=3 x2=1 cert=c.txt
 ./icheck c.txt
 ```
 
-About 40 GB of memory. `./rg2 9 3,2,1 r=3 x2=1 cert=c.txt` gives 11/9 with 3 GB. `vcheck.cpp` and `rgcheck.py` are two more checkers.
+This gives 11/9 with 3 GB. `./rg2 12 3,2,1 r=4 x2=1 cert=c.txt` gives 29/24 (a 74 GB file) and `./rg2 12 5,3,2 r=3 x2=1 cert=c.txt` gives 109/90 with 40 GB. `vcheck.cpp` and `rgcheck.py` are two more checkers.
 
 ## Three algorithms: at least 47/40
 
@@ -64,4 +72,4 @@ g++ -O2 -std=c++17 -fopenmp -o c3a threebins/c3a.cpp
 ./c3a c.txt
 ```
 
-This is a fair coin of 4/3: eleven minutes on 16 cores, 6 GB. `./rg3 10 2 1,1 maxgb=80 cert=c.txt` gives a fair coin of 53/40 (an 89 GB file) and `./rg3 9 3 4,3 maxgb=80 cert=c.txt` a lottery of 83/63 (213 GB). Both need several hundred GB of memory. `c3b.cpp` is a second checker. `sim3.cpp` runs a lottery on real inputs.
+This is a fair coin of 4/3: eleven minutes on 16 cores, 6 GB. `./rg3 10 2 1,1 maxgb=80 cert=c.txt` gives a fair coin of 53/40 (an 89 GB file) and `./rg3 9 3 4,3 maxgb=80 cert=c.txt` a lottery of 83/63 (213 GB). Both need several hundred GB of memory. `c3b.cpp` is a second checker (`g++ -O2 -std=c++17 -fopenmp -o c3b threebins/c3b.cpp`, GCC only, about 490 GB for 83/63). `sim3.cpp` runs a lottery on real inputs.
