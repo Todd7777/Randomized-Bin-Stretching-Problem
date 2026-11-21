@@ -28,7 +28,7 @@ UV_NPROC=64 python3 -B ../verify/uverify.py m 1 5 ../verify/rows.json ../verify/
 
 Needs numpy. Never use `-O` or `PYTHONOPTIMIZE`. The two numbers after `m` are the level 1/5, and the second must be positive.
 
-## R_2 <= 29/24
+## R_2 <= 181/150
 
 `twobins/` has the solver of the rounded game and checkers of its certificates.
 
@@ -39,7 +39,7 @@ g++ -O2 -fopenmp -o icheck twobins/icheck.cpp
 ./icheck c.txt
 ```
 
-This gives 11/9 with 3 GB. `./rg2 12 3,2,1 r=4 x2=1 cert=c.txt` gives 29/24 (a 74 GB file) and `./rg2 12 5,3,2 r=3 x2=1 cert=c.txt` gives 109/90 with 40 GB. `vcheck.cpp` and `rgcheck.py` are two more checkers.
+This gives 11/9 with 3 GB. `./rg2 12 3,2,1 r=4 x2=1 cert=c.txt` gives 29/24 (a 74 GB file) and `./rg2 15 5,3,2 r=3 x2=1 maxgb=400 cert=c.txt` gives 181/150 (a 207 GB file, 363 GB of memory). `vcheck.cpp` and `rgcheck.py` are two more checkers. `vcheck2.cpp` does the checks of `vcheck.cpp` in less memory.
 
 ## Three algorithms: at least 47/40
 
